@@ -1,0 +1,16 @@
+{
+  "status": "analysis-only; no deployable patch",
+  "program_id": "010000000000000B",
+  "build_id": "C91C6FC8AA4C39222D6CCFE0FFF468543105E59B000000000000000000000000",
+  "observed_hos": "22.5.0",
+  "module_size": 3096576,
+  "observations": [
+    {"offset": "0x626ac", "bytes": "40218252", "meaning": "Source UUID 0x110A passed to SDP record helper"},
+    {"offset": "0x626c0", "bytes": "40218252", "meaning": "Source UUID 0x110A passed to advertised UUID helper"},
+    {"offset": "0x8b380", "bytes": "ff8301d1fd7b02a9", "meaning": "Candidate A2DP SDP-record helper entry"},
+    {"offset": "0x8ecc0", "bytes": "28cc407929d59f52", "meaning": "Candidate AVDT_CreateStream entry; validates control callback at configuration +0x78"},
+    {"offset": "0x94640", "bytes": "fd7bbea9f44f01a9", "meaning": "Stream allocator; copies 0xA0-byte configuration into stream control block"},
+    {"offset": "0x94c9c", "bytes": "084040f9c80300b4", "meaning": "Incoming media path reads callback at stream control block +0x80"},
+    {"offset": "0x94cb0", "bytes": "024040f9a20f00f9fafeff97a10240f9", "meaning": "Callback dispatch preparation after RTP removal; timestamp and payload type forwarded"}
+  ]
+}

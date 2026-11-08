@@ -1,0 +1,9 @@
+.research/
+build/
+dist/
+__pycache__/
+*.elf
+*.nacp
+*.lst
+*.map
+*.nro
