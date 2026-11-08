@@ -86,6 +86,19 @@ Result native_bridge_attach_state(NativeBridge *b) {
     return rc;
 }
 
+Result native_bridge_exchange_module_pointer(NativeBridge *b, u64 address, u64 expected, u64 replacement) {
+    if (!b->installed || address < b->base + 0x160000 || address > b->base + 0x2F4000 - 8 || (address & 7)) return BAD();
+    Handle debug = INVALID_HANDLE;
+    Result rc = svcDebugActiveProcess(&debug, b->pid);
+    if (R_FAILED(rc)) return rc;
+    u64 current = 0;
+    rc = svcReadDebugProcessMemory(&current, debug, address, 8);
+    if (R_SUCCEEDED(rc) && current != expected) rc = BAD();
+    if (R_SUCCEEDED(rc)) rc = svcWriteDebugProcessMemory(debug, &replacement, address, 8);
+    svcCloseHandle(debug);
+    return rc;
+}
+
 Result native_bridge_call(NativeBridge *b, u64 offset, const u64 args[6], u64 *result) {
     if (!b->state || offset >= 0x118000 || (offset & 3)) return BAD();
     struct { u64 function, args[6]; } call = { .function = b->base + offset };
@@ -97,8 +110,34 @@ Result native_bridge_call(NativeBridge *b, u64 offset, const u64 args[6], u64 *r
     return rc;
 }
 
+Result native_bridge_trace_disconnects(NativeBridge *b, bool enable) {
+    if (!b->installed || (enable && !b->state)) return BAD();
+    const u32 offsets[2] = {0xD17B0, 0xBD9D0};
+    const u32 targets[2] = {BRIDGE_DISCONNECT_SEND_OFFSET, BRIDGE_DISCONNECT_RECEIVE_OFFSET};
+    Handle debug = INVALID_HANDLE;
+    Result rc = svcDebugActiveProcess(&debug, b->pid);
+    if (R_FAILED(rc)) return rc;
+    for (unsigned i = 0; i < 2 && R_SUCCEEDED(rc); i++) {
+        const u32 mask = 1u << i;
+        if (!!(b->trace_hooks & mask) == enable) continue;
+        u32 branch = 0x14000000u | (((targets[i] - offsets[i]) / 4) & 0x03FFFFFF);
+        const u32 original = 0xA9BE7BFDu; // stp x29,x30,[sp,#-32]!
+        u32 current = 0, replacement = enable ? branch : original;
+        rc = svcReadDebugProcessMemory(&current, debug, b->base + offsets[i], 4);
+        if (R_SUCCEEDED(rc) && current != (enable ? original : branch)) rc = BAD();
+        if (R_SUCCEEDED(rc)) rc = svcWriteDebugProcessMemory(debug, &replacement, b->base + offsets[i], 4);
+        if (R_SUCCEEDED(rc)) { if (enable) b->trace_hooks |= mask; else b->trace_hooks &= ~mask; }
+    }
+    svcCloseHandle(debug);
+    return rc;
+}
+
 Result native_bridge_remove(NativeBridge *b) {
     if (!b->installed) return 0;
+    if (b->trace_hooks) {
+        Result rc = native_bridge_trace_disconnects(b, false);
+        if (R_FAILED(rc)) return rc;
+    }
     if (b->state) {
         SinkBridgeReply reply;
         Result rc = native_bridge_query(b, SINK_FLUSH_SIZE, &reply);

@@ -102,3 +102,32 @@ Result audio_pipeline_pump(AudioPipeline *a) {
     }
     return 0;
 }
+
+int audio_pipeline_selftest(void) {
+    // Test the same streaming resampler and ring used by playback, without
+    // opening an audio device. Heap storage avoids the applet's small stack.
+    AudioPipeline *a = calloc(1, sizeof(*a)), *b = calloc(1, sizeof(*b));
+    if (!a || !b) { free(a); free(b); return 1; }
+    a->initialized = b->initialized = true;
+    int failures = 0;
+    int16_t stereo[296];
+    for (unsigned i = 0; i < 148; i++) { stereo[2*i] = i * 100 - 7000; stereo[2*i+1] = 7000 - i * 90; }
+    audio_pipeline_input(a, stereo, 148, 44100, 2);
+    for (unsigned i = 0; i < 148; i++) audio_pipeline_input(b, stereo + 2*i, 1, 44100, 2);
+    if (a->write != 161 || b->write != a->write || memcmp(a->ring,b->ring,a->write*4)) failures++;
+    if (a->ring[0] != stereo[0] || a->ring[1] != stereo[1] ||
+        a->ring[320] != stereo[294] || a->ring[321] != stereo[295]) failures++;
+    memset(a,0,sizeof(*a)); a->initialized = true;
+    audio_pipeline_input(a, stereo, 148, 48000, 2);
+    if (a->write != 148 || memcmp(a->ring,stereo,sizeof(stereo))) failures++;
+    memset(a,0,sizeof(*a)); a->initialized = true;
+    const int16_t mono = 500;
+    for (unsigned i = 0; i < 44101; i++) audio_pipeline_input(a,&mono,1,44100,1);
+    if (a->write != 48001 || a->write - a->read != AUDIO_RING_FRAMES ||
+        a->overruns != 48001 - AUDIO_RING_FRAMES) failures++;
+    for (size_t i = 0; i < AUDIO_RING_FRAMES * 2; i++) if (a->ring[i] != 500) { failures++; break; }
+    audio_pipeline_clear(a);
+    if (a->read != a->write || a->have_previous || a->have_audio) failures++;
+    free(a); free(b);
+    return failures;
+}

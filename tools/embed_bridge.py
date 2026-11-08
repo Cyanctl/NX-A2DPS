@@ -21,7 +21,8 @@ def main():
     if not data or len(data) > 0x590:
         raise SystemExit('Bridge size exceeds verified executable padding')
     header = '#pragma once\n#include <stdint.h>\n'
-    for name in ('bridge_entry', 'bridge_state', 'bridge_media', 'bridge_control'):
+    for name in ('bridge_entry', 'bridge_state', 'bridge_media', 'bridge_control',
+                 'bridge_disconnect_send', 'bridge_disconnect_receive'):
         header += f'#define {name.upper()}_OFFSET 0x{symbols[name]:X}u\n'
     header += 'static const uint8_t bridge_blob[] = {\n'
     for i in range(0, len(data), 16):

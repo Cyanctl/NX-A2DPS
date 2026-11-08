@@ -39,5 +39,11 @@ typedef struct {
     uint8_t negotiated[0x78];
     uint8_t create_stream[0xA0];
     SinkBridgeSlot queue[SINK_QUEUE_COUNT];
+    uint32_t disconnect_sent, disconnect_command;
+    uint32_t disconnect_received, disconnect_reason;
+    uint64_t disconnect_caller;
 } SinkBridgeState;
 _Static_assert(sizeof(SinkBridgeState) <= 512, "GKI allocation bound");
+_Static_assert(offsetof(SinkBridgeState, disconnect_sent) == 456, "Trace assembly ABI");
+_Static_assert(offsetof(SinkBridgeState, disconnect_reason) == 468, "Trace assembly ABI");
+_Static_assert(offsetof(SinkBridgeState, disconnect_caller) == 472, "Caller assembly ABI");

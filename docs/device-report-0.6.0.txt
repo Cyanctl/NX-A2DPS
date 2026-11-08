@@ -1,0 +1,47 @@
+Switch Audio Probe 0.6.0
+SBC media core available; Bluetooth RX hook NOT implemented.
+
+HOS: 22.5.0   Atmosphere: yes
+setsysInitialize                 0x00000000
+setsysGetFirmwareVersion         0x00000000
+Firmware: 22.5.0
+btmInitialize                    0x00000000
+btmGetState                      0x00000000
+BTM state: 6
+btmGetHostDeviceProperty         0x00000000
+Host name: Nintendo Switch
+btmGetDeviceCondition(Audio)     0x00000000
+BT audio device count: 0
+btdrvInitialize                  0x00000000
+btdrvGetAdapterProperty(CoD)     0x00000000
+Class of device: 3C0400
+Atmosphere HasService(mc)        0x00000000
+smGetService(mc)                 0x00000000
+MissionControl GetVersion        0x00000000
+MissionControl version raw: 0x00001000
+pmdmntInitialize                 0x00000000
+Bluetooth process ID             0x00000000
+ldrDmntInitialize                0x00000000
+Bluetooth module metadata        0x00000000
+Module 0 base=00000057DD200000 size=2F4000 build=C91C6FC8AA4C39222D6CCFE0FFF468543105E59B000000000000000000000000
+RTP/SBC selftest: PASS (0 failures)
+
+No Bluetooth reset, pairing or profile changes performed.
+Known libnx audio IPC exposes output; no receive API.
+A: audio  B: native bridge test  X: code snapshot
+Y: USB transfer  PLUS: exit
+Report: sdmc:/switch/switch-audio-probe/report.txt
+Bridge btdrvInitialize           0x00000000
+Install temporary IPC bridge     0x00000000
+Native IPC handshake             0x00000000
+Attach native bridge state       0x00000000
+Allocate native test packet      0x00000000
+Native media IPC roundtrip       0x00000000
+Restore Bluetooth code           0x00000000
+Native bridge test: PASS
+audoutInitialize                 0x00000000
+Output: 48000 Hz / 2 channels / PCM format 2
+audoutAppendAudioOutBuffer       0x00000000
+audoutStartAudioOut              0x00000000
+audoutWaitPlayFinish             0x00000000
+Released buffers: 1

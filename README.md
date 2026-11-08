@@ -2,8 +2,10 @@
 
 This project targets the original Switch's built-in Bluetooth radio under
 Atmosphère. **Phone-to-Switch Bluetooth streaming is not working yet.**
-The current executable is a diagnostic/research application with a tested SBC
-media receiver. It does not advertise an audio sink or install firmware patches.
+The current executable registers a native audio sink through temporary,
+firmware-specific Bluetooth-process hooks. Android pairs, negotiates SBC and
+opens the stream, then disconnects before START. No live media has arrived.
+Normal stop restores the hooks; no boot, flash or CFW files are modified.
 
 ## Implemented and tested on the console
 
@@ -18,6 +20,9 @@ media receiver. It does not advertise an audio sink or install firmware patches.
 - Optional local snapshot of Bluetooth executable/read-only mappings for
   analysis. Writable memory is excluded. The debugger detaches before SD writes.
 - MCP controller/screenshot and Windows MTP deployment/retrieval tools.
+- Native SEP/SDP registration, configuration response, bounded media queue and IPC.
+- Continuous audio buffering and streaming 44.1-to-48 kHz resampling.
+- Version 10 logs outgoing HCI Disconnect commands and incoming completion reasons.
 
 `sbc_receiver_packet()` accepts complete media RTP packets.
 `sbc_receiver_payload()` accepts the SBC payload header and frames, together
@@ -36,7 +41,7 @@ Windows PowerShell, devkitA64, libnx and Switch tools:
 ./build.ps1 -DevkitPro C:/path/to/devkitpro
 ```
 
-Output: `dist/switch-audio-probe-v5.nro`. Build objects are retained in `build/`
+Output: `dist/switch-audio-sink-v10.nro`. Build objects are retained in `build/`
 and can be relinked after changing the library. The complete libsbc sources,
 licenses and pinned upstream revision are in `third_party/libsbc/`.
 
@@ -47,16 +52,19 @@ The MTP tool selects exactly one device named Nintendo Switch and its SD Card;
 it writes only the specified file and refuses an existing destination.
 
 ```powershell
-./tools/switch_mtp.ps1 -Action Upload -LocalFile ./dist/switch-audio-probe-v5.nro
+./tools/switch_mtp.ps1 -Action Upload -LocalFile ./dist/switch-audio-sink-v10.nro
 ```
 
 Exit USB File Transfer, let the homebrew launcher refresh, and launch **Switch
-Audio Probe v5**. Wait for its screen to appear before sending another button.
+Audio Sink v10**. Wait for its screen to appear before sending another button.
 
 - **A:** quiet half-second local test tone.
+- **B:** native IPC/media bridge self-test (sink stopped).
+- **ZL:** start native sink; keep the app foreground.
+- **ZR:** stop and remove native sink.
 - **X:** snapshot Bluetooth code/read-only mappings to the app's SD folder.
-- **Y:** launch `sdmc:/switch/haze.nro` for USB file transfer.
-- **PLUS:** exit.
+- **Y:** clean up and launch `sdmc:/switch/haze.nro` for USB file transfer.
+- **PLUS:** clean up and exit.
 
 The report is `sdmc:/switch/switch-audio-probe/report.txt`. Each launch replaces
 that app-owned report; X replaces the app-owned `bluetooth-code.bin` snapshot.
@@ -71,7 +79,7 @@ python tools/switch_mcp.py press --buttons 0x400
 The MCP endpoint defaults to the supplied LAN address. This MCP server supports
 controller input and screenshots, not arbitrary code execution or file access.
 
-## Firmware work still required
+## Firmware-specific implementation
 
 The tested console reports HOS 22.5.0, Atmosphère and MissionControl version
 `0x00001000` (0.16.0). Its Bluetooth module build ID is:
@@ -83,7 +91,8 @@ UUID `0x110A` to the SDP/advertisement helpers. It also contains an incoming med
 path that calls a callback from the stream configuration at offset `+0x80` after
 removing RTP. Its callback receives a stream handle, a buffer, timestamp and
 payload type; the RTP sequence is written to the buffer's metadata. These are
-disassembly observations, not a fully verified callable ABI.
+disassembly observations; native bridge round-trip and SEP/SDP registration have
+since succeeded on the console. The internal ABI remains experimental.
 
 The version-specific observations in `firmware/` can be checked without writing
 anything to the console:
@@ -94,22 +103,29 @@ python tools/check_firmware.py .research/bluetooth-code.bin .research/report-v3.
 python tools/inspect_bluetooth.py .research/bluetooth-code.bin --start 0x94c9c --size 0x50
 ```
 
-The missing implementation is a Bluetooth-process extension that:
+The Bluetooth-process extension now implements:
 
 1. Registers a sink SEP and SDP UUID `0x110B`, with verified control/data callback
    layouts and codec capabilities; changing the existing UUID alone is inadequate.
-2. Handles pairing consent and incoming AVDTP configuration/start/suspend/close.
+2. Responds to incoming configuration and observes AVDTP lifecycle callbacks.
 3. Copies media into a bounded queue and transfers it to the homebrew process
    through a dedicated IPC interface, without consuming system/controller events.
 4. Supplies negotiated format and sequence metadata to the existing decoder.
-5. Buffers/resamples 44.1 kHz output to Horizon's 48 kHz renderer, recovers after
-   disconnect/sleep, and restores previous state on shutdown.
+5. Buffers/resamples 44.1 kHz output to Horizon's 48 kHz renderer and clears
+   audio on disconnect. Sleep recovery remains unverified.
 6. Verifies the exact module build and original instructions before any patch,
    preserves MissionControl's existing hooks, and supports removal/recovery.
 
-No receive hook has been installed. Existing source audio/controller behavior
-has not been modified. The snapshot and all firmware bytes remain in ignored
+The extension temporarily redirects the native AVDTP connection callback while
+active. Existing MissionControl executable patches are preserved. The snapshot
+and all firmware bytes remain in ignored
 local research storage; the repository contains only our observations and code.
+
+The current blocker is a disconnect after OPEN and before START. Signaling
+isolation, A2DP 1.2 SDP advertisement and Android forget/re-pair did not resolve
+it. V10 instrumentation is diagnostic, not a connection fix. Live playback,
+streaming coexistence, sleep and forced-exit cleanup remain unverified.
+Reboot clears the volatile extension.
 
 ## Audio and project boundaries
 

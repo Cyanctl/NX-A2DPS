@@ -36,7 +36,7 @@ static void result(const char *name, Result rc) {
 }
 
 static void probe(void) {
-    logline("Switch Audio Sink 0.7.0 (experimental native backend)\n\n");
+    logline("Switch Audio Sink 0.11.0 (experimental native backend)\n\n");
     u32 hos = hosversionGet();
     logline("HOS: %lu.%lu.%lu   Atmosphere: %s\n", (unsigned long)((hos >> 16) & 255),
         (unsigned long)((hos >> 8) & 255), (unsigned long)(hos & 255),
@@ -106,6 +106,8 @@ static void probe(void) {
     inspect_bluetooth_module();
     int failures = sbc_receiver_selftest();
     logline("RTP/SBC selftest: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
+    failures = audio_pipeline_selftest();
+    logline("Audio pipeline selftest: %s (%d failures)\n", failures ? "FAIL" : "PASS", failures);
     logline("\nNo Bluetooth reset, pairing or profile changes performed.\n");
     logline("Known libnx audio IPC exposes output; no receive API.\n");
     logline("A: audio  B: native bridge test  X: code snapshot\nY: USB transfer  PLUS: exit\n");

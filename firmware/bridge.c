@@ -38,6 +38,11 @@ void bridge_control(uint8_t handle, const uint8_t *peer, uint8_t event, const ui
     (void)handle;
     SinkBridgeState *s = state();
     if (!s) return;
+    uint8_t *trace = s->create_stream + 128 + (s->controls & 7) * 4;
+    trace[0] = event;
+    trace[1] = data ? data[0] : 0xFF;
+    trace[2] = data ? data[1] : 0xFF;
+    trace[3] = data ? data[2] : 0xFF;
     s->event = event;
     if (peer) fw_copy(s->peer, peer, 6);
     if (data) {

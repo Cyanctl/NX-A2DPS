@@ -15,3 +15,4 @@ void audio_pipeline_finish(AudioPipeline *);
 void audio_pipeline_clear(AudioPipeline *);
 void audio_pipeline_input(void *, const int16_t *, size_t frames, unsigned rate, unsigned channels);
 Result audio_pipeline_pump(AudioPipeline *);
+int audio_pipeline_selftest(void);

@@ -25,6 +25,7 @@ Result native_sink_start(NativeSink *s, u64 pid, const LoaderModuleInfo *module,
     s->driver = true;
     rc = native_bridge_install(&s->bridge, pid, module);
     if (R_SUCCEEDED(rc)) rc = native_bridge_attach_state(&s->bridge);
+    if (R_SUCCEEDED(rc)) rc = native_bridge_trace_disconnects(&s->bridge, true);
     note(s, "Sink bridge setup: 0x%08lX\n", (unsigned long)rc);
     uint8_t config[0xA0] = {0};
     config[0] = 6; // SBC codec information: length, audio media type, codec=0.
@@ -47,6 +48,22 @@ Result native_sink_start(NativeSink *s, u64 pid, const LoaderModuleInfo *module,
     if (R_SUCCEEDED(rc) && !s->handle) rc = bad();
     note(s, "Create sink SEP: rc=0x%08lX native=%lu handle=%u\n", (unsigned long)rc, (unsigned long)result, s->handle);
     if (R_SUCCEEDED(rc)) {
+        u64 stream = 0;
+        rc = call(s, 0x948C0,s->handle,0,0,0,0,&stream);
+        if (R_SUCCEEDED(rc) && !stream) rc = bad();
+        if (R_SUCCEEDED(rc)) {
+            // AVDT_Register installs the source-oriented BTA connection
+            // multiplexer. While receiving, give signaling to our own handler
+            // so the source manager does not open/close a competing stream.
+            u64 avdt = stream - 0x158 - (s->handle - 1) * 0x210;
+            s->connection_callback_address = avdt + 0x2820;
+            rc = native_bridge_exchange_module_pointer(&s->bridge, s->connection_callback_address,
+                s->bridge.base + 0x633A0, control);
+            if (R_SUCCEEDED(rc)) s->connection_callback_replaced = true;
+        }
+        note(s, "Isolate sink signaling: 0x%08lX\n", (unsigned long)rc);
+    }
+    if (R_SUCCEEDED(rc)) {
         rc = call(s, 0xF0160,0,0,0,0,0,&result);
         if (R_SUCCEEDED(rc)) s->record = (u32)result;
         if (R_SUCCEEDED(rc) && !s->record) rc = bad();
@@ -58,6 +75,13 @@ Result native_sink_start(NativeSink *s, u64 pid, const LoaderModuleInfo *module,
     if (R_SUCCEEDED(rc) && (result & 0xFF)) rc = bad();
     note(s, "Register sink SDP: rc=0x%08lX native=%lu record=%08lX\n", (unsigned long)rc,
         (unsigned long)result, (unsigned long)s->record);
+    if (R_SUCCEEDED(rc)) {
+        // The native helper defaults to A2DP 1.3. This endpoint implements the
+        // 1.2 feature set, so advertise that profile version consistently.
+        rc = call(s, 0xF0C50,s->record,0x110D,0x0102,0,0,&result);
+        if (R_SUCCEEDED(rc) && !(result & 0xFF)) rc = bad();
+        note(s, "Set A2DP 1.2 SDP profile: 0x%08lX\n", (unsigned long)rc);
+    }
     if (R_SUCCEEDED(rc)) {
         rc = call(s, 0x836B0,0x110B,0,0,0,0,NULL);
         if (R_SUCCEEDED(rc)) s->uuid_added = true;
@@ -104,6 +128,12 @@ Result native_sink_stop(NativeSink *s) {
         if (R_FAILED(rc)) return rc;
         s->uuid_added = false;
     }
+    if (s->connection_callback_replaced) {
+        rc = native_bridge_exchange_module_pointer(&s->bridge, s->connection_callback_address,
+            s->bridge.base + BRIDGE_CONTROL_OFFSET, s->bridge.base + 0x633A0);
+        if (R_FAILED(rc)) return rc;
+        s->connection_callback_replaced = false;
+    }
     if (s->record) {
         u64 result = 0;
         rc = call(s, 0xF04B0,s->record,0,0,0,0,&result);
@@ -126,9 +156,21 @@ Result native_sink_stop(NativeSink *s) {
 
 static Result control(NativeSink *s, const SinkBridgeReply *reply) {
     if (reply->controls == s->controls) return 0;
+    uint32_t previous = s->controls;
     s->controls = reply->controls;
-    note(s, "AVDTP control event=%lu count=%lu\n", (unsigned long)reply->event, (unsigned long)reply->controls);
-    if (reply->event == 4) {
+    uint8_t trace[32];
+    Result event_rc = native_bridge_read(&s->bridge, offsetof(SinkBridgeState, create_stream) + 128, trace, sizeof(trace));
+    if (R_FAILED(event_rc)) return event_rc;
+    if (s->controls - previous > 8) previous = s->controls - 8;
+    for (uint32_t i = previous; i != s->controls; i++) {
+        const uint8_t *e = trace + (i & 7) * 4;
+        note(s, "AVDTP event=%u status=%u parameter=%u label=%u count=%lu\n",
+            e[0],e[1],e[2],e[3],(unsigned long)(i + 1));
+    }
+    uint8_t header[6] = {0};
+    event_rc = native_bridge_read(&s->bridge, offsetof(SinkBridgeState, event_header), header, sizeof(header));
+    if (R_FAILED(event_rc)) return event_rc;
+    if (reply->event == 4 || (!s->configured && (reply->event == 3 || reply->event == 6))) {
         uint8_t config[0x78];
         Result rc = native_bridge_read(&s->bridge, offsetof(SinkBridgeState, negotiated), config, sizeof(config));
         if (R_FAILED(rc)) return rc;
@@ -148,6 +190,24 @@ static Result control(NativeSink *s, const SinkBridgeReply *reply) {
 
 Result native_sink_pump(NativeSink *s) {
     if (!s->active) return 0;
+    uint32_t trace[4];
+    Result trace_rc = native_bridge_read(&s->bridge, offsetof(SinkBridgeState, disconnect_sent), trace, sizeof(trace));
+    if (R_FAILED(trace_rc)) return trace_rc;
+    if (trace[0] != s->disconnect_sent) {
+        uint64_t caller = 0;
+        trace_rc = native_bridge_read(&s->bridge, offsetof(SinkBridgeState, disconnect_caller), &caller, sizeof(caller));
+        if (R_FAILED(trace_rc)) return trace_rc;
+        note(s, "HCI local Disconnect: handle=%03lX reason=%02lX count=%lu\n",
+            (unsigned long)(trace[1] & 0xFFF), (unsigned long)((trace[1] >> 16) & 0xFF), (unsigned long)trace[0]);
+        note(s, "Disconnect caller: module+0x%lX\n", (unsigned long)(caller - s->bridge.base));
+        s->disconnect_sent = trace[0];
+    }
+    if (trace[2] != s->disconnect_received) {
+        note(s, "HCI Disconnect Complete: status=%02lX handle=%03lX reason=%02lX count=%lu\n",
+            (unsigned long)(trace[3] & 0xFF), (unsigned long)((trace[3] >> 8) & 0xFFF),
+            (unsigned long)(trace[3] >> 24), (unsigned long)trace[2]);
+        s->disconnect_received = trace[2];
+    }
     for (unsigned i = 0; i < 12; i++) {
         SinkBridgeReply reply;
         Result rc = native_bridge_query(&s->bridge, SINK_READ_SIZE, &reply);

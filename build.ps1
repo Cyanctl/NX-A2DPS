@@ -34,7 +34,7 @@ foreach ($source in @('sbc.c','sbc_primitives.c')) {
 Invoke-Checked $gcc ($arch + @("-specs=$DevkitPro/libnx/switch.specs",
     '-g','-Wl,-Map,build/switch-audio-probe.map') + $objects + @(
     "-L$DevkitPro/libnx/lib",'-lnx','-lm','-o','build/switch-audio-probe.elf'))
-Invoke-Checked "$DevkitPro/tools/bin/nacptool.exe" @('--create','Switch Audio Sink v7','Cyan','0.7.0','build/switch-audio-probe.nacp')
-Invoke-Checked "$DevkitPro/tools/bin/elf2nro.exe" @('build/switch-audio-probe.elf','dist/switch-audio-sink-v7.nro',
+Invoke-Checked "$DevkitPro/tools/bin/nacptool.exe" @('--create','Switch Audio Sink v11','Cyan','0.11.0','build/switch-audio-probe.nacp')
+Invoke-Checked "$DevkitPro/tools/bin/elf2nro.exe" @('build/switch-audio-probe.elf','dist/switch-audio-sink-v11.nro',
     '--nacp=build/switch-audio-probe.nacp',"--icon=$DevkitPro/libnx/default_icon.jpg")
-Get-FileHash dist/switch-audio-sink-v7.nro -Algorithm SHA256
+Get-FileHash dist/switch-audio-sink-v11.nro -Algorithm SHA256

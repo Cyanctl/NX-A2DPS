@@ -1,0 +1,55 @@
+Switch Audio Sink 0.9.0 (experimental native backend)
+
+HOS: 22.5.0   Atmosphere: yes
+setsysInitialize                 0x00000000
+setsysGetFirmwareVersion         0x00000000
+Firmware: 22.5.0
+btmInitialize                    0x00000000
+btmGetState                      0x00000000
+BTM state: 6
+btmGetHostDeviceProperty         0x00000000
+Host name: Nintendo Switch
+btmGetDeviceCondition(Audio)     0x00000000
+BT audio device count: 0
+btdrvInitialize                  0x00000000
+btdrvGetAdapterProperty(CoD)     0x00000000
+Class of device: 3C0400
+Atmosphere HasService(mc)        0x00000000
+smGetService(mc)                 0x00000000
+MissionControl GetVersion        0x00000000
+MissionControl version raw: 0x00001000
+pmdmntInitialize                 0x00000000
+Bluetooth process ID             0x00000000
+ldrDmntInitialize                0x00000000
+Bluetooth module metadata        0x00000000
+Module 0 base=00000054F4E00000 size=2F4000 build=C91C6FC8AA4C39222D6CCFE0FFF468543105E59B000000000000000000000000
+RTP/SBC selftest: PASS (0 failures)
+Audio pipeline selftest: PASS (0 failures)
+
+No Bluetooth reset, pairing or profile changes performed.
+Known libnx audio IPC exposes output; no receive API.
+A: audio  B: native bridge test  X: code snapshot
+Y: USB transfer  PLUS: exit
+ZL: start native sink  ZR: stop native sink
+Report: sdmc:/switch/switch-audio-probe/report.txt
+Sink bridge setup: 0x00000000
+Create sink SEP: rc=0x00000000 native=0 handle=3
+Isolate sink signaling: 0x00000000
+Register sink SDP: rc=0x00000000 native=0 record=00010004
+Set A2DP 1.2 SDP profile: 0x00000000
+SINK ACTIVE: pair Nintendo Switch in phone Bluetooth settings.
+Keep this app open. ZR stops and removes the sink.
+Start native sink                0x00000000
+AVDTP event=16 status=0 parameter=1 label=0 count=1
+AVDTP event=4 status=0 parameter=7 label=2 count=2
+Negotiated codec: 06 00 00 21 15 02 35 protect=0
+AVDTP event=3 status=0 parameter=0 label=0 count=3
+AVDTP event=17 status=0 parameter=0 label=0 count=4
+AVDTP event=10 status=0 parameter=0 label=0 count=5
+AVDTP event=16 status=0 parameter=1 label=0 count=6
+AVDTP event=4 status=0 parameter=7 label=2 count=7
+Negotiated codec: 06 00 00 21 15 02 35 protect=0
+AVDTP event=3 status=0 parameter=0 label=0 count=8
+AVDTP event=17 status=0 parameter=0 label=0 count=9
+AVDTP event=10 status=0 parameter=0 label=0 count=10
+Sink removed. Packets=0 rejected=0 underruns=0 overruns=0
