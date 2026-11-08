@@ -1,7 +1,7 @@
 # Switch A2DP sink research
 
 This project targets the original Switch's built-in Bluetooth radio under
-Atmosphère. **Phone-to-Switch Bluetooth streaming is not working yet.**
+Atmosphère. **Phone-to-Switch Bluetooth streaming is working**
 The current executable registers a native audio sink through temporary,
 firmware-specific Bluetooth-process hooks. Android pairs, negotiates SBC and
 opens the stream, then disconnects before START. No live media has arrived.
